@@ -135,7 +135,7 @@ public class DataAccessDB implements DataAccess, Constants {
         }
         //Weak entities must filter the parent
         if (entity.isWeak()) {
-            if (ctx.getEntityContainer().getOwner() != null) {
+            if (ctx.getEntityContainer(true)!=null && ctx.getEntityContainer().getOwner() != null) {
                 if (ctx.getEntityContainer().getOwner().getId().equals(entity.getOwner().getEntityId())) {
                     if (ctx.getEntityContainer().getOwner().getSelected() != null) {
                         final Object instance = ctx.getEntityContainer().getOwner().getSelected().getInstance();

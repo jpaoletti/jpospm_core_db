@@ -1,6 +1,6 @@
 /*
  * jPOS Project [http://jpos.org]
- * Copyright (C) 2000-2010 Alejandro P. Revilla
+ * Copyright (C) 2000-2011 Alejandro P. Revilla
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -54,6 +54,8 @@ public class DBEntityFilter extends EntityFilter {
                 } else {
                     return Restrictions.eq(fid, value_0);
                 }
+            case BETWEEN:
+                return Restrictions.between(fid, value_0, values.get(1));
             case GE:
                 return Restrictions.ge(fid, value_0);
             case GT:

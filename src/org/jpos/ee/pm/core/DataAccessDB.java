@@ -18,6 +18,7 @@
 package org.jpos.ee.pm.core;
 
 import java.util.List;
+import java.util.Map;
 
 import org.hibernate.Criteria;
 import org.hibernate.criterion.Criterion;
@@ -127,7 +128,19 @@ public class DataAccessDB implements DataAccess, Constants {
         }
 
         if (entity.getListfilter() != null) {
-            c.add((Criterion) entity.getListfilter().getListFilter(ctx));
+            final Object lf = entity.getListfilter().getListFilter(ctx);
+            if (lf instanceof Criterion) {
+                c.add((Criterion) lf);
+            } else if (lf instanceof Map) {
+                Map<String, Object> map = (Map<String, Object>) lf;
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (entry.getValue() instanceof String) {
+                        c = c.createAlias(entry.getKey(), (String) entry.getValue());
+                    } else if (entry.getValue() instanceof Criterion) {
+                        c.add((Criterion) entry.getValue());
+                    }
+                }
+            }
         }
 
         if (filter != null) {
@@ -135,7 +148,7 @@ public class DataAccessDB implements DataAccess, Constants {
         }
         //Weak entities must filter the parent
         if (entity.isWeak()) {
-            if (ctx.getEntityContainer(true)!=null && ctx.getEntityContainer().getOwner() != null) {
+            if (ctx.getEntityContainer(true) != null && ctx.getEntityContainer().getOwner() != null) {
                 if (ctx.getEntityContainer().getOwner().getId().equals(entity.getOwner().getEntityId())) {
                     if (ctx.getEntityContainer().getOwner().getSelected() != null) {
                         final Object instance = ctx.getEntityContainer().getOwner().getSelected().getInstance();

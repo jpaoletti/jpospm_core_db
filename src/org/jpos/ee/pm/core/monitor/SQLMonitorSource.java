@@ -1,6 +1,6 @@
 /*
  * jPOS Project [http://jpos.org]
- * Copyright (C) 2000-2010 Alejandro P. Revilla
+ * Copyright (C) 2000-2011 Alejandro P. Revilla
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -25,65 +25,69 @@ import org.hibernate.SQLQuery;
 import org.jpos.ee.DB;
 
 public class SQLMonitorSource extends MonitorSource {
+
     private String query;
     private String lastLineQuery;
     private Integer idColumn;
 
+    @Override
     public void init() {
         setQuery(getConfig("query"));
         setLastLineQuery(getConfig("last-line-query"));
         setIdColumn(Integer.parseInt(getConfig("id-column", "0")));
     }
 
+    @Override
     public List<MonitorLine> getLinesFrom(Object actual) throws Exception {
-        List<MonitorLine> result = new ArrayList<MonitorLine>(); 
-        DB db = new DB();
+        final List<MonitorLine> result = new ArrayList<MonitorLine>();
+        final DB db = new DB();
         db.open();
         try {
-            String sql = getQuery().trim();
-            sql = sql.replaceAll("$actual", (actual==null)?"":actual.toString());
-            SQLQuery c = db.session().createSQLQuery(sql);
-            List<?> l = c.list();
+            String sql = getLastLineQuery().trim();
+            sql = sql.replaceAll("\\$actual", (actual == null) ? "" : actual.toString());
+            final SQLQuery c = db.session().createSQLQuery(sql);
+            final List<?> l = c.list();
             for (Iterator<?> iterator = l.iterator(); iterator.hasNext();) {
-                Object item = iterator.next();
-                MonitorLine line = new MonitorLine();
-                
+                final Object item = iterator.next();
+                final MonitorLine line = new MonitorLine();
+
                 if (item instanceof Object[]) {
-                    Object[] objects = (Object[]) item;
+                    final Object[] objects = (Object[]) item;
                     line.setId(objects[getIdColumn()]);
                     line.setValue(objects);
-                }else{
+                } else {
                     line.setId(item);
-                    Object[] objects = {item};
+                    final Object[] objects = {item};
                     line.setValue(objects);
                 }
-                
+
                 result.add(line);
             }
-        } finally{
+        } finally {
             db.close();
         }
         return result;
     }
 
+    @Override
     public MonitorLine getLastLine() throws Exception {
-        MonitorLine result = new MonitorLine();
-        DB db = new DB();
+        final MonitorLine result = new MonitorLine();
+        final DB db = new DB();
         db.open();
         try {
-            SQLQuery c = db.session().createSQLQuery(getLastLineQuery().trim());
+            final SQLQuery c = db.session().createSQLQuery(getLastLineQuery().trim());
             c.setMaxResults(1);
-            Object item = c.uniqueResult();
+            final Object item = c.uniqueResult();
             if (item instanceof Object[]) {
-                Object[] objects = (Object[]) item;
+                final Object[] objects = (Object[]) item;
                 result.setId(objects[getIdColumn()]);
                 result.setValue(objects);
-            }else{
+            } else {
                 result.setId(item);
-                Object[] objects = {item};
+                final Object[] objects = {item};
                 result.setValue(objects);
             }
-        } finally{
+        } finally {
             db.close();
         }
         return result;

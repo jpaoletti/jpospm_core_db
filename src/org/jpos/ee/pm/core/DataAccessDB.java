@@ -17,6 +17,7 @@
  */
 package org.jpos.ee.pm.core;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -100,6 +101,7 @@ public class DataAccessDB implements DataAccess, Constants {
     }
 
     protected Criteria createCriteria(PMContext ctx, Entity entity, EntityFilter filter) throws PMException {
+        final List<String> aliases = new ArrayList<String>();
         Criteria c;
         DB db = getDb(ctx);
         try {
@@ -115,18 +117,21 @@ public class DataAccessDB implements DataAccess, Constants {
         } catch (Exception e) {
         }
         boolean asc = (ctx.get(PM_LIST_ASC) == null) ? true : (Boolean) ctx.get(PM_LIST_ASC);
-        //This is a temporary patch until i found how to sort propertys
-        if (order != null && order.contains(".")) {
-            order = order.substring(0, order.indexOf("."));
-        }
-        if (order != null && order.compareTo("") != 0) {
+        if (order != null) {
+            final String[] splitorder = order.split("[.]");
+            for (int i = 0; i < splitorder.length - 1; i++) {
+                final String so = splitorder[i];
+                if (!aliases.contains(so)) {
+                    c = c.createAlias(so, so);
+                    aliases.add(so);
+                }
+            }
             if (asc) {
                 c.addOrder(Order.asc(order));
             } else {
                 c.addOrder(Order.desc(order));
             }
         }
-
         if (entity.getListfilter() != null) {
             final Object lf = entity.getListfilter().getListFilter(ctx);
             if (lf instanceof Criterion) {
@@ -135,7 +140,11 @@ public class DataAccessDB implements DataAccess, Constants {
                 Map<String, Object> map = (Map<String, Object>) lf;
                 for (Map.Entry<String, Object> entry : map.entrySet()) {
                     if (entry.getValue() instanceof String) {
-                        c = c.createAlias(entry.getKey(), (String) entry.getValue());
+                        final String alias = entry.getKey();
+                        if (!aliases.contains(alias)) {
+                            c = c.createAlias(alias, (String) entry.getValue());
+                            aliases.add(alias);
+                        }
                     } else if (entry.getValue() instanceof Criterion) {
                         c.add((Criterion) entry.getValue());
                     }
@@ -144,7 +153,7 @@ public class DataAccessDB implements DataAccess, Constants {
         }
 
         if (filter != null) {
-            c = ((DBEntityFilter) filter).applyFilters(c);
+            c = ((DBEntityFilter) filter).applyFilters(c, aliases);
         }
         //Weak entities must filter the parent
         if (entity.isWeak()) {

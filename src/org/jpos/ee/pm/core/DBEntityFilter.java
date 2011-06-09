@@ -75,29 +75,23 @@ public class DBEntityFilter extends EntityFilter {
         this.filters = filters;
     }
 
-    public Criteria applyFilters(Criteria criteria) {
-        Criteria tmpCriteria = null;
+    public Criteria applyFilters(Criteria criteria, List<String> aliases) {
+        Criteria tmpCriteria = criteria;
         for (Entry<String, List<Object>> entry : getFilterValues().entrySet()) {
-            tmpCriteria = criteria;
             final Field field = entity.getFieldById(entry.getKey());
             final List<Object> values = entry.getValue();
             if (values.get(0) != null) {
-                final String[] properties = field.getProperty().split("[.]");
-                if (properties.length == 1) {
-                    tmpCriteria.add(getCompareCriterion(properties[0], values));
-                } else {
-                    for (int i = 0; i < properties.length; i++) {
-                        final String property = properties[i];
-                        if (i == properties.length - 1) {
-                            //Last one
-                            tmpCriteria.add(getCompareCriterion(property, values));
-                        } else {
-                            tmpCriteria = tmpCriteria.createCriteria(property);
-                        }
+                final String[] splitorder = field.getProperty().split("[.]");
+                for (int i = 0; i < splitorder.length - 1; i++) {
+                    final String s = splitorder[i];
+                    if (!aliases.contains(s)) {
+                        tmpCriteria = tmpCriteria.createAlias(s, s);
+                        aliases.add(s);
                     }
                 }
+                tmpCriteria.add(getCompareCriterion(field.getProperty(), values));
             }
         }
-        return criteria;
+        return tmpCriteria;
     }
 }

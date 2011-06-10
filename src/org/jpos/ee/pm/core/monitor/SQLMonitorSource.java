@@ -43,7 +43,12 @@ public class SQLMonitorSource extends MonitorSource {
         final DB db = new DB();
         db.open();
         try {
-            String sql = getLastLineQuery().trim();
+            String sql;
+            if (actual == null) {
+                sql = getQuery().trim();
+            } else {
+                sql = getLastLineQuery().trim();
+            }
             sql = sql.replaceAll("\\$actual", (actual == null) ? "" : actual.toString());
             final SQLQuery c = db.session().createSQLQuery(sql);
             final List<?> l = c.list();

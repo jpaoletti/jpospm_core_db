@@ -45,29 +45,29 @@ public class DBEntityFilter extends EntityFilter {
         this.entity = entity;
     }
 
-    protected Criterion getCompareCriterion(String fid, List<Object> values) {
+    protected Criterion getCompareCriterion(String fieldid, String fieldProperty, List<Object> values) {
         Object value_0 = values.get(0);
-        switch (getFilterOperation(fid)) {
+        switch (getFilterOperation(fieldid)) {
             case LIKE:
                 if (value_0 instanceof String) {
-                    return Restrictions.ilike(fid, "%" + value_0 + "%");
+                    return Restrictions.ilike(fieldProperty, "%" + value_0 + "%");
                 } else {
-                    return Restrictions.eq(fid, value_0);
+                    return Restrictions.eq(fieldProperty, value_0);
                 }
             case BETWEEN:
-                return Restrictions.between(fid, value_0, values.get(1));
+                return Restrictions.between(fieldProperty, value_0, values.get(1));
             case GE:
-                return Restrictions.ge(fid, value_0);
+                return Restrictions.ge(fieldProperty, value_0);
             case GT:
-                return Restrictions.gt(fid, value_0);
+                return Restrictions.gt(fieldProperty, value_0);
             case LE:
-                return Restrictions.le(fid, value_0);
+                return Restrictions.le(fieldProperty, value_0);
             case LT:
-                return Restrictions.lt(fid, value_0);
+                return Restrictions.lt(fieldProperty, value_0);
             case NE:
-                return Restrictions.not(Restrictions.eq(fid, value_0));
+                return Restrictions.not(Restrictions.eq(fieldProperty, value_0));
             default:
-                return Restrictions.eq(fid, value_0);
+                return Restrictions.eq(fieldProperty, value_0);
         }
     }
 
@@ -89,7 +89,7 @@ public class DBEntityFilter extends EntityFilter {
                         aliases.add(s);
                     }
                 }
-                tmpCriteria.add(getCompareCriterion(field.getProperty(), values));
+                tmpCriteria.add(getCompareCriterion(field.getId(), field.getProperty(), values));
             }
         }
         return tmpCriteria;

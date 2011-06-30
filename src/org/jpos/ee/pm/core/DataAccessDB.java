@@ -17,6 +17,7 @@
  */
 package org.jpos.ee.pm.core;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,13 +35,41 @@ public class DataAccessDB implements DataAccess, Constants {
     @Override
     public Object getItem(PMContext ctx, String property, String value) throws PMException {
         try {
-            DB db = getDb(ctx);
-            Criteria c = db.session().createCriteria(Class.forName(getEntity(ctx).getClazz()));
+            /*
+             * To avoid the use of SQL restriction that use column name we introspect
+             * the property type and parse it. It work for some basics for now
+             * until we find a better way.
+             *
+             * If we get an error or the type is not a Long, Integer, Boolean nor String,
+             * we try the old way.
+             */
+            final DB db = getDb(ctx);
+            final Class<?> clazz = Class.forName(getEntity(ctx).getClazz());
+            final Criteria c = db.session().createCriteria(clazz);
             c.setMaxResults(1);
-            c.add(Restrictions.sqlRestriction(property + "=" + value));
+            Criterion criterion = null;
+            try {
+                final Field f = clazz.getDeclaredField(property);
+                final Class<?> declaringClass = f.getType();
+                if (declaringClass.equals(Long.class)) {
+                    criterion = Restrictions.eq(property, Long.parseLong(value));
+                } else if (declaringClass.equals(Integer.class)) {
+                    criterion = Restrictions.eq(property, Integer.parseInt(value));
+                } else if (declaringClass.equals(String.class)) {
+                    criterion = Restrictions.eq(property, value);
+                } else if (declaringClass.equals(Boolean.class)) {
+                    criterion = Restrictions.eq(property, Boolean.parseBoolean(value));
+                }
+            } catch (NoSuchFieldException e) {
+                criterion = Restrictions.sqlRestriction(property + "=" + value);
+            }
+            if (criterion == null) {
+                criterion = Restrictions.sqlRestriction(property + "=" + value);
+            }
+            c.add(criterion);
             return c.uniqueResult();
-        } catch (ClassNotFoundException e) {
-            return null;
+        } catch (Exception e) {
+            throw new PMException(e);
         }
     }
 

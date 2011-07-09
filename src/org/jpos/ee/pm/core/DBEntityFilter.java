@@ -23,6 +23,7 @@ import java.util.Map.Entry;
 import org.hibernate.Criteria;
 
 import org.hibernate.criterion.Criterion;
+import org.hibernate.criterion.Junction;
 import org.hibernate.criterion.Restrictions;
 
 public class DBEntityFilter extends EntityFilter {
@@ -77,6 +78,7 @@ public class DBEntityFilter extends EntityFilter {
 
     public Criteria applyFilters(Criteria criteria, List<String> aliases) {
         Criteria tmpCriteria = criteria;
+        //First we create all the needed aliases
         for (Entry<String, List<Object>> entry : getFilterValues().entrySet()) {
             final Field field = entity.getFieldById(entry.getKey());
             final List<Object> values = entry.getValue();
@@ -89,9 +91,25 @@ public class DBEntityFilter extends EntityFilter {
                         aliases.add(s);
                     }
                 }
-                tmpCriteria.add(getCompareCriterion(field.getId(), field.getProperty(), values));
             }
         }
+        //Then we add the restrictions
+        Junction c = null;
+        switch (getBehavior()) {
+            case OR:
+                c = Restrictions.disjunction();
+                break;
+            default:
+                c = Restrictions.conjunction();
+        }
+        for (Entry<String, List<Object>> entry : getFilterValues().entrySet()) {
+            final Field field = entity.getFieldById(entry.getKey());
+            final List<Object> values = entry.getValue();
+            if (values.get(0) != null) {
+                c.add(getCompareCriterion(field.getId(), field.getProperty(), values));
+            }
+        }
+        tmpCriteria.add(c);
         return tmpCriteria;
     }
 }

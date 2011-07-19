@@ -76,11 +76,14 @@ public class DBEntityFilter extends EntityFilter {
         this.filters = filters;
     }
 
-    public Criteria applyFilters(Criteria criteria, List<String> aliases) {
+    public Criteria applyFilters(Criteria criteria, List<String> aliases) throws PMException {
         Criteria tmpCriteria = criteria;
         //First we create all the needed aliases
         for (Entry<String, List<Object>> entry : getFilterValues().entrySet()) {
             final Field field = entity.getFieldById(entry.getKey());
+            if (field == null) {
+                throw new PMException("Undefined field " + entry.getKey());
+            }
             final List<Object> values = entry.getValue();
             if (values.get(0) != null) {
                 final String[] splitorder = field.getProperty().split("[.]");

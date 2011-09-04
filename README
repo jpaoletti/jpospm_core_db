@@ -4,6 +4,16 @@ monitoring web site for a jPOS-EE based project, based in xml definition files.
 
 This submodule uses an hibernate connection as Data Access.
 
+security.sql contains the mysql script to create security tables with a default
+user.
+
+You must add this to your hibernate configuration file.
+
+<mapping class="org.jpos.ee.pm.security.SECPermission" />
+<mapping class="org.jpos.ee.pm.security.SECUserGroup" />
+<mapping class="org.jpos.ee.pm.security.SECUser" />
+<mapping class="org.jpos.ee.pm.security.SECUserProp" />
+
 -------------------------------------------------------------------------------
 
 jPOS Project [http://jpos.org]

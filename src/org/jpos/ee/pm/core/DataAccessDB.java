@@ -23,13 +23,19 @@ import java.util.List;
 import java.util.Map;
 
 import org.hibernate.Criteria;
+import org.hibernate.Session;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.jpos.ee.Constants;
 import org.jpos.ee.DB;
+import org.jpos.ee.pm.core.exception.ConnectionNotFoundException;
+import org.jpos.ee.pm.core.exception.EntityClassNotFoundException;
 
+/**
+ * Data access using an hibernate session
+ */
 public class DataAccessDB implements DataAccess, Constants {
 
     @Override
@@ -43,9 +49,9 @@ public class DataAccessDB implements DataAccess, Constants {
              * If we get an error or the type is not a Long, Integer, Boolean nor String,
              * we try the old way.
              */
-            final DB db = getDb(ctx);
+            final Session db = getDb(ctx);
             final Class<?> clazz = Class.forName(getEntity(ctx).getClazz());
-            final Criteria c = db.session().createCriteria(clazz);
+            final Criteria c = db.createCriteria(clazz);
             c.setMaxResults(1);
             Criterion criterion = null;
             try {
@@ -73,10 +79,20 @@ public class DataAccessDB implements DataAccess, Constants {
         }
     }
 
-    protected DB getDb(PMContext ctx) {
-        return (DB) ctx.get(DBPersistenceManager.PM_DB);
+    /**
+     * Get hibernate session from the context
+     */
+    protected Session getDb(PMContext ctx) {
+        final DB db = (DB) ctx.get(DBPersistenceManager.PM_DB);
+        if (db == null) {
+            throw new ConnectionNotFoundException();
+        }
+        return db.session();
     }
 
+    /**
+     * Get entity from context.
+     */
     private Entity getEntity(PMContext ctx) throws PMException {
         if (ctx.get(PM_ENTITY) == null) {
             return ctx.getEntity();
@@ -100,21 +116,18 @@ public class DataAccessDB implements DataAccess, Constants {
 
     @Override
     public void delete(PMContext ctx, Object object) throws PMException {
-        DB db = getDb(ctx);
-        db.session().delete(object);
+        getDb(ctx).delete(object);
     }
 
     @Override
     public void update(PMContext ctx, Object object) throws PMException {
-        DB db = getDb(ctx);
-        db.session().update(object);
+        getDb(ctx).update(object);
     }
 
     @Override
     public void add(PMContext ctx, Object object) throws PMException {
         try {
-            DB db = getDb(ctx);
-            db.session().save(object);
+            getDb(ctx).save(object);
         } catch (org.hibernate.exception.ConstraintViolationException e) {
             throw new PMException("constraint.violation.exception");
         }
@@ -132,12 +145,10 @@ public class DataAccessDB implements DataAccess, Constants {
     protected Criteria createCriteria(PMContext ctx, Entity entity, EntityFilter filter) throws PMException {
         final List<String> aliases = new ArrayList<String>();
         Criteria c;
-        DB db = getDb(ctx);
         try {
-            c = db.session().createCriteria(Class.forName(entity.getClazz()));
+            c = getDb(ctx).createCriteria(Class.forName(entity.getClazz()));
         } catch (ClassNotFoundException e) {
-            ctx.getErrors().add(new PMMessage(ENTITY, "class.not.found"));
-            throw new PMException();
+            throw new EntityClassNotFoundException();
         }
 
         String order = null;
@@ -202,9 +213,9 @@ public class DataAccessDB implements DataAccess, Constants {
 
     @Override
     public Object refresh(PMContext ctx, Object o) throws PMException {
-        DB db = getDb(ctx);
-        final Object merged = db.session().merge(o);
-        db.session().refresh(merged);
+        final Session db = getDb(ctx);
+        final Object merged = db.merge(o);
+        db.refresh(merged);
         return merged;
     }
 

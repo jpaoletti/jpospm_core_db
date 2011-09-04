@@ -19,10 +19,13 @@ package org.jpos.ee.pm.security.db;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.hibernate.Session;
 
 import org.hibernate.criterion.Restrictions;
 import org.jpos.ee.DB;
+import org.jpos.ee.pm.core.exception.ConnectionNotFoundException;
 import org.jpos.ee.pm.core.DBPersistenceManager;
+import org.jpos.ee.pm.core.PMException;
 import org.jpos.ee.pm.security.SECPermission;
 import org.jpos.ee.pm.security.SECUser;
 import org.jpos.ee.pm.security.SECUserGroup;
@@ -30,34 +33,49 @@ import org.jpos.ee.pm.security.core.GroupAlreadyExistException;
 import org.jpos.ee.pm.security.core.PMSecurityAbstractConnector;
 import org.jpos.ee.pm.security.core.PMSecurityException;
 import org.jpos.ee.pm.security.core.PMSecurityPermission;
-import org.jpos.ee.pm.security.core.PMSecurityProfile;
 import org.jpos.ee.pm.security.core.PMSecurityUser;
 import org.jpos.ee.pm.security.core.PMSecurityUserGroup;
 import org.jpos.ee.pm.security.core.UserAlreadyExistException;
 import org.jpos.ee.pm.security.core.UserNotFoundException;
 
+/**
+ * Security connector that uses an hibernate session and a database support
+ * for authentication.
+ *
+ */
 public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
 
-    protected DB getDb() {
-        return (DB) getCtx().get(DBPersistenceManager.PM_DB);
+    /**
+     * Get hibernate session from the context
+     */
+    protected Session getDb() {
+        final DB db = (DB) getCtx().get(DBPersistenceManager.PM_DB);
+        if (db == null) {
+            throw new ConnectionNotFoundException();
+        }
+        return db.session();
     }
 
     @Override
     public PMSecurityUser getUser(String username) throws PMSecurityException {
-        final SECUser dbuser = getDBUser(username);
-        if (dbuser == null) {
-            throw new UserNotFoundException();
+        try {
+            final SECUser dbuser = getDBUser(username);
+            if (dbuser == null) {
+                throw new UserNotFoundException();
+            }
+            return convert(dbuser);
+        } catch (ConnectionNotFoundException ex) {
+            throw new PMSecurityException(ex);
         }
-        return convert(dbuser);
     }
 
-    public SECUser getDBUser(String username) throws PMSecurityException {
-        final DB db = getDb();
+    public SECUser getDBUser(String username) throws PMSecurityException, ConnectionNotFoundException {
+        final Session db = getDb();
         SECUser u = null;
         try {
-            u = (SECUser) db.session().createCriteria(SECUser.class).add(Restrictions.eq("nick", username)).uniqueResult();
+            u = (SECUser) db.createCriteria(SECUser.class).add(Restrictions.eq("nick", username)).uniqueResult();
             if (u != null) {
-                db.session().refresh(u);
+                db.refresh(u);
             }
         } catch (Exception e) {
             getLog().error(e);
@@ -69,9 +87,8 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
     @Override
     public List<PMSecurityUser> getUsers() throws PMSecurityException {
         final List<PMSecurityUser> result = new ArrayList<PMSecurityUser>();
-        final DB db = getDb();
         try {
-            final List<SECUser> users = db.session().createCriteria(SECUser.class).list();
+            final List<SECUser> users = getDb().createCriteria(SECUser.class).list();
             for (SECUser u : users) {
                 result.add(convert(u));
             }
@@ -86,7 +103,6 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
 
     @Override
     public void addUser(PMSecurityUser user) throws PMSecurityException {
-        final DB db = getDb();
         try {
             if (getDBUser(user.getUsername().toLowerCase()) != null) {
                 throw new UserAlreadyExistException();
@@ -94,27 +110,24 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
             checkUserRules(user.getUsername(), user.getPassword());
             final SECUser secuser = unconvert(null, user);
             secuser.setPassword(encrypt(user.getPassword()));
-            db.session().save(secuser);
+            getDb().save(secuser);
         } catch (PMSecurityException e) {
             throw e;
         } catch (Exception e) {
-            getLog().error(e);
             throw new PMSecurityException(e);
         }
     }
 
     @Override
     public void updateUser(PMSecurityUser user) throws PMSecurityException {
-        final DB db = getDb();
         try {
             checkUserRules(user.getUsername(), user.getPassword());
             SECUser secuser = getDBUser(user.getUsername());
             secuser = unconvert(secuser, user);
-            db.session().update(secuser);
+            getDb().update(secuser);
         } catch (PMSecurityException e) {
             throw e;
         } catch (Exception e) {
-            getLog().error(e);
             throw new PMSecurityException(e);
         }
     }
@@ -125,23 +138,18 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
     }
 
     public SECUserGroup getDBGroup(String groupname) throws PMSecurityException {
-        final DB db = getDb();
-        SECUserGroup g = null;
         try {
-            g = (SECUserGroup) db.session().createCriteria(SECUserGroup.class).add(Restrictions.eq("name", groupname)).uniqueResult();
+            return (SECUserGroup) getDb().createCriteria(SECUserGroup.class).add(Restrictions.eq("name", groupname)).uniqueResult();
         } catch (Exception e) {
-            getLog().error(e);
             throw new PMSecurityException(e);
         }
-        return g;
     }
 
     @Override
     public List<PMSecurityUserGroup> getGroups() throws PMSecurityException {
-        final DB db = getDb();
         final List<PMSecurityUserGroup> groups = new ArrayList<PMSecurityUserGroup>();
         try {
-            final List<SECUserGroup> ug = db.session().createCriteria(SECUserGroup.class).list();
+            final List<SECUserGroup> ug = getDb().createCriteria(SECUserGroup.class).list();
             for (SECUserGroup g : ug) {
                 groups.add(convert(g));
             }
@@ -154,7 +162,6 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
 
     @Override
     public void addGroup(PMSecurityUserGroup group) throws PMSecurityException {
-        final DB db = getDb();
         try {
             if (getDBGroup(group.getName()) != null) {
                 throw new GroupAlreadyExistException();
@@ -162,7 +169,7 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
 
             final SECUserGroup secuserg = unconvert(null, group);
 
-            db.session().save(secuserg);
+            getDb().save(secuserg);
         } catch (PMSecurityException e) {
             throw e;
         } catch (Exception e) {
@@ -173,12 +180,12 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
 
     @Override
     public void updateGroup(PMSecurityUserGroup group) throws PMSecurityException {
-        final DB db = getDb();
+        final Session db = getDb();
         try {
             SECUserGroup secuserg = getDBGroup(group.getName());
-            db.session().refresh(secuserg);
+            db.refresh(secuserg);
             secuserg = unconvert(secuserg, group);
-            db.session().update(secuserg);
+            db.update(secuserg);
         } catch (Exception e) {
             getLog().error(e);
         }
@@ -187,9 +194,8 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
     @Override
     public List<PMSecurityPermission> getPermissions() throws PMSecurityException {
         final List<PMSecurityPermission> perms = new ArrayList<PMSecurityPermission>();
-        final DB db = getDb();
         try {
-            final List<SECPermission> ps = db.session().createCriteria(SECPermission.class).list();
+            final List<SECPermission> ps = getDb().createCriteria(SECPermission.class).list();
             for (SECPermission p : ps) {
                 perms.add(convert(p));
             }
@@ -273,7 +279,7 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
         }
     }
 
-    protected SECUserGroup unconvert(SECUserGroup secgroup, PMSecurityUserGroup g) throws PMSecurityException {
+    protected SECUserGroup unconvert(SECUserGroup secgroup, PMSecurityUserGroup g) throws PMException {
         if (g == null) {
             return null;
         }
@@ -292,13 +298,13 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
         return group;
     }
 
-    protected SECPermission getDBPerm(String name) throws PMSecurityException {
-        final DB db = getDb();
+    protected SECPermission getDBPerm(String name) throws PMException {
+        final Session db = getDb();
         SECPermission p = null;
         try {
-            p = (SECPermission) db.session().createCriteria(SECPermission.class).add(Restrictions.eq("name", name)).uniqueResult();
+            p = (SECPermission) db.createCriteria(SECPermission.class).add(Restrictions.eq("name", name)).uniqueResult();
             if (p != null) {
-                db.session().refresh(p);
+                db.refresh(p);
             }
         } catch (Exception e) {
             getLog().error(e);
@@ -318,38 +324,7 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
     }
 
     @Override
-    public void addProfile(PMSecurityProfile profile) throws PMSecurityException {
-        // TODO Auto-generated method stub
-    }
-
-    @Override
-    public PMSecurityProfile getProfile(String id) throws PMSecurityException {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public List<PMSecurityProfile> getProfiles() throws PMSecurityException {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public void removeGroup(PMSecurityUserGroup group)
-            throws PMSecurityException {
-        DB db = getDb();
-        db.session().delete(getDBGroup(group.getName()));
-    }
-
-    @Override
-    public void removeProfile(PMSecurityProfile profile)
-            throws PMSecurityException {
-        // TODO Auto-generated method stub
-    }
-
-    @Override
-    public void updateProfile(PMSecurityProfile profile)
-            throws PMSecurityException {
-        // TODO Auto-generated method stub
+    public void removeGroup(PMSecurityUserGroup group) throws PMSecurityException {
+        getDb().delete(getDBGroup(group.getName()));
     }
 }

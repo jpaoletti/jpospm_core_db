@@ -1,6 +1,6 @@
 /*
  * jPOS Project [http://jpos.org]
- * Copyright (C) 2000-2010 Alejandro P. Revilla
+ * Copyright (C) 2000-2011 Alejandro P. Revilla
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.jpos.ee.pm.core;
+
 import org.hibernate.Transaction;
 import org.jpos.ee.DB;
 
@@ -23,10 +24,12 @@ public class DBPersistenceManager implements PersistenceManager {
 
     public static final String PM_DB = "DB";
 
+    @Override
     public void commit(PMContext ctx, Object transaction) throws Exception {
         ((Transaction) transaction).commit();
     }
 
+    @Override
     public void finish(PMContext ctx) throws Exception {
         final DB db = (DB) ctx.get(PM_DB);
         if (db != null) {
@@ -34,6 +37,7 @@ public class DBPersistenceManager implements PersistenceManager {
         }
     }
 
+    @Override
     public void init(PMContext ctx) throws Exception {
         try {
             DB db = new DB(ctx.getLog());
@@ -45,6 +49,7 @@ public class DBPersistenceManager implements PersistenceManager {
         }
     }
 
+    @Override
     public void rollback(PMContext ctx, Object transaction) throws Exception {
         ((Transaction) transaction).rollback();
         final DB db = (DB) ctx.get(PM_DB);
@@ -52,6 +57,7 @@ public class DBPersistenceManager implements PersistenceManager {
         db.open();
     }
 
+    @Override
     public Object startTransaction(PMContext ctx) throws Exception {
         final DB db = (DB) ctx.get(PM_DB);
         return db.beginTransaction();

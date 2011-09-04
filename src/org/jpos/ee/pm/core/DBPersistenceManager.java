@@ -17,11 +17,16 @@
  */
 package org.jpos.ee.pm.core;
 
+import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.jpos.ee.DB;
 
-public class DBPersistenceManager implements PersistenceManager {
+public class DBPersistenceManager implements PersistenceManager<Session> {
+    private Session session;
 
+    /**
+     * @deprecated use getConnection to get an hibernate session instead.
+     */
     public static final String PM_DB = "DB";
 
     @Override
@@ -30,19 +35,18 @@ public class DBPersistenceManager implements PersistenceManager {
     }
 
     @Override
-    public void finish(PMContext ctx) throws Exception {
-        final DB db = (DB) ctx.get(PM_DB);
-        if (db != null) {
-            db.close();
-        }
+    public void finish(PMContext ctx){
+        try {
+            getConnection().close();
+        } catch (Exception e) {}
     }
 
     @Override
     public void init(PMContext ctx) throws Exception {
         try {
-            DB db = new DB(ctx.getLog());
-            db.open();
-            ctx.put(PM_DB, db);
+            final DB db = new DB(ctx.getLog());
+            this.session = db.open();
+            ctx.put(PM_DB, db); //kept for compatibility
         } catch (Exception e) {
             ctx.getPresentationManager().error(e);
             throw new PMException(e);
@@ -52,14 +56,17 @@ public class DBPersistenceManager implements PersistenceManager {
     @Override
     public void rollback(PMContext ctx, Object transaction) throws Exception {
         ((Transaction) transaction).rollback();
-        final DB db = (DB) ctx.get(PM_DB);
-        db.close();
-        db.open();
+        getConnection().close();
+        init(ctx);
     }
 
     @Override
     public Object startTransaction(PMContext ctx) throws Exception {
-        final DB db = (DB) ctx.get(PM_DB);
-        return db.beginTransaction();
+        return getConnection().beginTransaction();
+    }
+
+    @Override
+    public Session getConnection() {
+        return session;
     }
 }

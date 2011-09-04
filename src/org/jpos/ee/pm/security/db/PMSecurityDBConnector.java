@@ -22,9 +22,7 @@ import java.util.List;
 import org.hibernate.Session;
 
 import org.hibernate.criterion.Restrictions;
-import org.jpos.ee.DB;
 import org.jpos.ee.pm.core.exception.ConnectionNotFoundException;
-import org.jpos.ee.pm.core.DBPersistenceManager;
 import org.jpos.ee.pm.core.PMException;
 import org.jpos.ee.pm.security.SECPermission;
 import org.jpos.ee.pm.security.SECUser;
@@ -49,11 +47,7 @@ public class PMSecurityDBConnector extends PMSecurityAbstractConnector {
      * Get hibernate session from the context
      */
     protected Session getDb() {
-        final DB db = (DB) getCtx().get(DBPersistenceManager.PM_DB);
-        if (db == null) {
-            throw new ConnectionNotFoundException();
-        }
-        return db.session();
+        return (Session) getCtx().getPersistenceManager().getConnection();
     }
 
     @Override

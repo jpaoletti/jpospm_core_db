@@ -29,8 +29,6 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.jpos.ee.Constants;
-import org.jpos.ee.DB;
-import org.jpos.ee.pm.core.exception.ConnectionNotFoundException;
 import org.jpos.ee.pm.core.exception.EntityClassNotFoundException;
 
 /**
@@ -83,11 +81,7 @@ public class DataAccessDB implements DataAccess, Constants {
      * Get hibernate session from the context
      */
     protected Session getDb(PMContext ctx) {
-        final DB db = (DB) ctx.get(DBPersistenceManager.PM_DB);
-        if (db == null) {
-            throw new ConnectionNotFoundException();
-        }
-        return db.session();
+        return (Session) ctx.getPersistenceManager().getConnection();
     }
 
     /**

@@ -35,6 +35,8 @@ import org.jpos.ee.pm.core.exception.EntityClassNotFoundException;
  */
 public class DataAccessDB implements DataAccess, PMCoreConstants {
 
+    private Entity entity;
+
     @Override
     public Object getItem(PMContext ctx, String property, String value) throws PMException {
         try {
@@ -47,7 +49,7 @@ public class DataAccessDB implements DataAccess, PMCoreConstants {
              * we try the old way.
              */
             final Session db = getDb(ctx);
-            final Class<?> clazz = Class.forName(getEntity(ctx).getClazz());
+            final Class<?> clazz = Class.forName(getEntity().getClazz());
             final Criteria c = db.createCriteria(clazz);
             c.setMaxResults(1);
             Criterion criterion = null;
@@ -83,21 +85,10 @@ public class DataAccessDB implements DataAccess, PMCoreConstants {
         return (Session) ctx.getPersistenceManager().getConnection();
     }
 
-    /**
-     * Get entity from context.
-     */
-    private Entity getEntity(PMContext ctx) throws PMException {
-        if (ctx.get(PM_ENTITY) == null) {
-            return ctx.getEntity();
-        } else {
-            return (Entity) ctx.get(PM_ENTITY);
-        }
-    }
-
     @Override
     public List<?> list(PMContext ctx, EntityFilter filter, Integer from, Integer count) throws PMException {
         //We use the filter only if the entity we use is the container one.
-        Criteria list = createCriteria(ctx, getEntity(ctx), filter);
+        final Criteria list = createCriteria(ctx, getEntity(), filter);
         if (count != null) {
             list.setMaxResults(count);
         }
@@ -128,8 +119,8 @@ public class DataAccessDB implements DataAccess, PMCoreConstants {
 
     @Override
     public Long count(PMContext ctx) throws PMException {
-        EntityFilter filter = ctx.getEntityContainer().getFilter();
-        Criteria count = createCriteria(ctx, getEntity(ctx), filter);
+        final EntityFilter filter = ctx.getEntityContainer().getFilter();
+        final Criteria count = createCriteria(ctx, getEntity(), filter);
         count.setProjection(Projections.rowCount());
         count.setMaxResults(1);
         return (Long) count.uniqueResult();
@@ -215,5 +206,15 @@ public class DataAccessDB implements DataAccess, PMCoreConstants {
     @Override
     public EntityFilter createFilter(PMContext ctx) throws PMException {
         return new DBEntityFilter();
+    }
+
+    @Override
+    public void setEntity(Entity entity) {
+        this.entity = entity;
+    }
+
+    @Override
+    public Entity getEntity() {
+        return entity;
     }
 }

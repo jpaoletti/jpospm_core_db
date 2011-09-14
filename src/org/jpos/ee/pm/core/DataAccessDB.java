@@ -86,9 +86,9 @@ public class DataAccessDB implements DataAccess, PMCoreConstants {
     }
 
     @Override
-    public List<?> list(PMContext ctx, EntityFilter filter, Integer from, Integer count) throws PMException {
+    public List<?> list(PMContext ctx, EntityFilter filter, ListSort sort, Integer from, Integer count) throws PMException {
         //We use the filter only if the entity we use is the container one.
-        final Criteria list = createCriteria(ctx, getEntity(), filter);
+        final Criteria list = createCriteria(ctx, getEntity(), filter, sort);
         if (count != null) {
             list.setMaxResults(count);
         }
@@ -120,13 +120,13 @@ public class DataAccessDB implements DataAccess, PMCoreConstants {
     @Override
     public Long count(PMContext ctx) throws PMException {
         final EntityFilter filter = ctx.getEntityContainer().getFilter();
-        final Criteria count = createCriteria(ctx, getEntity(), filter);
+        final Criteria count = createCriteria(ctx, getEntity(), filter, null);
         count.setProjection(Projections.rowCount());
         count.setMaxResults(1);
         return (Long) count.uniqueResult();
     }
 
-    protected Criteria createCriteria(PMContext ctx, Entity entity, EntityFilter filter) throws PMException {
+    protected Criteria createCriteria(PMContext ctx, Entity entity, EntityFilter filter, ListSort sort) throws PMException {
         final List<String> aliases = new ArrayList<String>();
         Criteria c;
         try {
@@ -135,12 +135,8 @@ public class DataAccessDB implements DataAccess, PMCoreConstants {
             throw new EntityClassNotFoundException();
         }
 
-        String order = null;
-        try {
-            order = (ctx.getString(PM_LIST_ORDER) != null) ? entity.getFieldById(ctx.getString(PM_LIST_ORDER)).getProperty() : null;
-        } catch (Exception e) {
-        }
-        boolean asc = (ctx.get(PM_LIST_ASC) == null) ? true : (Boolean) ctx.get(PM_LIST_ASC);
+        final String order = (sort != null && sort.isSorted()) ? entity.getFieldById(sort.getFieldId()).getProperty() : null;
+        final boolean asc = (sort == null) ? true : sort.getDirection().equals(ListSort.SortDirection.ASC);
         if (order != null) {
             final String[] splitorder = order.split("[.]");
             for (int i = 0; i < splitorder.length - 1; i++) {
